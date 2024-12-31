@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>元旦抽签转盘</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            padding: 50px;
+            background-color: #ffe6e6;
+            position: relative;
+            overflow: hidden;
+        }
+
+
+        .header {
+            position: relative;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 48px;
+            color: #d32f2f;
+            margin: 0;
+            position: relative;
+            z-index: 2;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+
+        #wheelCanvas {
+            border: 10px solid #d32f2f;
+            border-radius: 50%;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            position: relative;
+            margin: 0 auto;
+        }
+
+
+        #spinButton {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #d32f2f;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        #spinButton:hover {
+            background-color: #b71c1c;
+        }
+        #spinButton:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+
+        #result {
+            margin-top: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #d32f2f;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+
+        @media (max-width: 600px) {
+            #wheelCanvas {
+                width: 300px;
+                height: 300px;
+            }
+            .header h1 {
+                font-size: 36px;
+            }
+            #spinButton {
+                padding: 10px 20px;
+                font-size: 16px;
+            }
+            #result {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>元旦抽签转盘</h1>
+    </div>
+
+    <canvas id="wheelCanvas" width="500" height="500"></canvas>
+    <br>
+    <button id="spinButton">开始抽取</button>
+    <div id="result"></div>
+
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinButton = document.getElementById('spinButton');
+        const resultDiv = document.getElementById('result');
+
+
+        const segments = [
+            '1号', '2号', '3号', '4号', '5号', '6号', '7号', '8号',
+            '9号', '10号', '11号', '12号', '13号', '14号', '15号', '16号',
+            '17号', '18号', '19号', '20号', '21号', '22号', '23号', '24号',
+            '25号', '26号', '27号', '28号', '29号', '30号', '31号', '再来一次'
+        ];
+
+        let selectedSegments = [];
+        let isSpinning = false;
+        let currentAngle = 0; 
+        let spinTimeout;
+
+        function drawWheel() {
+            const numSegments = segments.length;
+            const segmentAngle = 2 * Math.PI / numSegments;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 20;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+
+            ctx.translate(centerX, centerY);
+            ctx.rotate(-Math.PI / 2 + currentAngle);
+            ctx.translate(-centerX, -centerY);
+
+
+            segments.forEach((segment, index) => {
+                const startAngle = index * segmentAngle;
+                const endAngle = startAngle + segmentAngle;
+
+
+                if (segment !== '再来一次') {
+                    ctx.fillStyle = selectedSegments.includes(segment) ? '#ccc' : (index % 2 === 0 ? '#FF5722' : '#FFC107');
+                } else {
+                    ctx.fillStyle = '#4CAF50'; 
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + segmentAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#000";
+
+                ctx.font = segments.length > 20 ? "12px Arial" : "20px Arial";
+                ctx.fillText(segment, radius - 10, 10);
+                ctx.restore();
+            });
+
+            ctx.restore();
+
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 50, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+
+
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - radius +10);
+            ctx.lineTo(centerX - 20, centerY - radius -20);
+            ctx.lineTo(centerX + 20, centerY - radius -20);
+            ctx.closePath();
+            ctx.fill();
+
+
+            if (selectedSegments.length === segments.length - 1) { 
+                ctx.fillStyle = 'rgba(128,128,128,0.5)';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        function spinWheel() {
+            if (isSpinning || (selectedSegments.length === segments.length - 1)) return;
+
+            isSpinning = true;
+            spinButton.disabled = true;
+            resultDiv.textContent = '';
+
+            const availableSegments = segments.filter(seg => seg === '再来一次' || !selectedSegments.includes(seg));
+            const selected = availableSegments[Math.floor(Math.random() * availableSegments.length)];
+            const selectedIndex = segments.indexOf(selected);
+
+            const numSegments = segments.length;
+            const segmentAngle = 2 * Math.PI / numSegments;
+            const randomSpins = Math.floor(Math.random() * 3) + 4;
+
+            const targetAngle = (randomSpins * 2 * Math.PI) + (numSegments - selectedIndex) * segmentAngle - (segmentAngle / 2);
+            let start;
+            const spinDuration = 5000; 
+
+            function animateSpin(timestamp) {
+                if (!start) start = timestamp;
+                const elapsed = timestamp - start;
+                const progress = Math.min(elapsed / spinDuration, 1);
+                const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                currentAngle = easeOutCubic * targetAngle;
+                currentAngle %= (2 * Math.PI);
+
+                drawWheel();
+
+                if (progress < 1) {
+                    spinTimeout = requestAnimationFrame(animateSpin);
+                } else {
+
+                    isSpinning = false;
+                    if (selected !== '再来一次') {
+                        selectedSegments.push(selected);
+                        resultDiv.textContent = `恭喜抽中：${selected}`;
+                    } else {
+                        resultDiv.textContent = `你选择了：${selected}`;
+                    }
+
+                    drawWheel();
+
+                    if (selectedSegments.length === segments.length - 1) { 
+                        resultDiv.textContent += '。所有号已被抽取完毕。';
+                    } else {
+                        spinButton.disabled = false;
+                    }
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        spinButton.addEventListener('click', spinWheel);
+
+        drawWheel();
+    </script>
+</body>
+</html>
